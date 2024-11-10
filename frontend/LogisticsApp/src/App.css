@@ -1,0 +1,39 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+    /* Можно настроить параметры анимации здесь */
+  }
+}
+
+.App-header {
+  background-color: #282c34; /* темный фон */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin); /* динамический размер шрифта */
+  color: white; /* белый текст */
+}
+
+.App-link {
+  color: #61dafb; /* светло-синяя ссылка */
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg); /* начальное положение */
+  }
+  to {
+    transform: rotate(360deg); /* полный оборот */
+  }
+}

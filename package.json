@@ -1,0 +1,21 @@
+{
+  "name": "logistic-contract",
+  "version": "1.0.0",
+  "description": "smart-contract for logistics Dapp",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate": "truffle migrate --reset && node copyContract.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.0",
+    "web3": "^4.9.0"
+  },
+  "devDependencies": {
+   
+  },
+  "keywords": [],
+  "author": "Bulat Askarov $ Ruslan Garifullin",
+  "license": ""
+}
