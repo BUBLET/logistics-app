@@ -1,0 +1,7 @@
+# Node modules и кеш
+node_modules/
+.cache/
+
+# Логи и системные файлы
+*.log
+.DS_Store
