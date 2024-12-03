@@ -1,6 +1,9 @@
 # Node modules и кеш
 node_modules/
 .cache/
+combine.py
+combined_code.py
+generate_structure.py
 
 # Логи и системные файлы
 *.log

@@ -10,7 +10,7 @@ contract Logistics {
         address recipient;   // Адрес получателя
         uint distance;       // Расстояние между пунктами отправления и назначения
         string cargoType;    // Тип груза
-        uint price;          // Стоимость заказа
+        uint price;          // Стоимость заказа (в wei)
         bool isPaid;         // Статус оплаты заказа
         bool isCompleted;    // Флаг, указывающий на то, выполнен ли заказ
         bool isCancelled;    // Флаг, указывающий, отменен ли заказ
@@ -119,19 +119,28 @@ contract Logistics {
         return reviews.length;
     }
 
-    // Функция для получения заказов с пагинацией
-    function getOrders(uint startIndex, uint endIndex) public view returns (Order[] memory) {
-        require(endIndex >= startIndex, "End index must be greater than or equal to start index");
-        require(endIndex < orders.length, "End index out of bounds");
-
-        uint length = endIndex - startIndex + 1;
-        Order[] memory orderList = new Order[](length);
-
-        for (uint i = 0; i < length; i++) {
-            orderList[i] = orders[startIndex + i];
-        }
-
-        return orderList;
+    // Функция для получения конкретного заказа по ID
+    function getOrder(uint _orderId) public view returns (
+        address sender,
+        address recipient,
+        uint distance,
+        string memory cargoType,
+        uint price,
+        bool isPaid,
+        bool isCompleted,
+        bool isCancelled
+    ) {
+        Order storage order = orders[_orderId];
+        return (
+            order.sender,
+            order.recipient,
+            order.distance,
+            order.cargoType,
+            order.price,
+            order.isPaid,
+            order.isCompleted,
+            order.isCancelled
+        );
     }
 
     // Новые функции
