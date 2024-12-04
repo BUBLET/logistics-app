@@ -41,7 +41,7 @@ function Reviews({ contract, accounts }) {
   };
 
   return (
-    <Paper style={{ padding: '20px', marginBottom: '30px' }}>
+    <Paper elevation={3} sx={{ padding: '30px', marginBottom: '20px', borderRadius: '10px', backgroundColor: '#f7f9fc' }}>
       <Typography variant="h6" gutterBottom>Оставить отзыв</Typography>
       <form noValidate autoComplete="off">
         <TextField

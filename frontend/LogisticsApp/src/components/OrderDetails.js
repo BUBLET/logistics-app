@@ -76,7 +76,7 @@ function OrderDetails({ contract, web3, orderId, open, handleClose }) {
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>Детали заказа #{orderId}</DialogTitle>
-      <DialogContent dividers>
+      <DialogContent dividers sx={{ backgroundColor: '#fafafa' }}>
         <Typography variant="body1"><strong>Отправитель:</strong> {order.sender}</Typography>
         <Typography variant="body1"><strong>Получатель:</strong> {order.recipient}</Typography>
         <Typography variant="body1"><strong>Расстояние:</strong> {order.distance} км</Typography>

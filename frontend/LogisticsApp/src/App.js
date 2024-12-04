@@ -18,6 +18,8 @@ import Reviews from './components/Reviews';
 import Statistics from './components/Statistics';
 import CompanyManagement from './components/CompanyManagement';
 import OrderDetails from './components/OrderDetails';
+import Header from './components/Header';
+import MyOrders from './components/MyOrders';
 
 function App() {
   const [web3, setWeb3] = useState(null);
@@ -264,12 +266,12 @@ function App() {
   return (
     <Container maxWidth="lg" style={{ paddingTop: '20px', paddingBottom: '20px' }}>
       <ToastContainer />
-      <Typography variant="h4" gutterBottom align="center">Logistics App</Typography>
+      <Header currentAccount={accounts[0]} />
 
       {/* Таб навигации */}
       <Tabs value={currentTab} onChange={handleTabChange} centered indicatorColor="primary" textColor="primary">
         <Tab label="Добавить заказ" />
-        <Tab label="Список заказов" />
+        <Tab label="Мои заказы" />
         <Tab label="Отзывы" />
         <Tab label="Статистика" />
         {isCompany && <Tab label="Управление" />}
@@ -281,7 +283,7 @@ function App() {
       </Box>
 
       <Box hidden={currentTab !== 1} sx={{ p: 3 }}>
-        <OrderList 
+        <MyOrders 
           orders={orders} 
           web3={web3} 
           handlePayForOrder={handlePayForOrder} 
