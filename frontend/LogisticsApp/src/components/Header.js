@@ -19,7 +19,6 @@ function Header({ currentAccount, handleTabChange, currentTab }) {
           <Typography variant="body1" style={{ marginRight: '20px' }}>
             Аккаунт: {truncateAddress(currentAccount)}
           </Typography>
-          {/* Можно добавить дополнительные кнопки или меню здесь */}
         </Box>
       </Toolbar>
     </AppBar>

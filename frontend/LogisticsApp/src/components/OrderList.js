@@ -15,7 +15,7 @@ import { toast } from 'react-toastify';
 
 function OrderList({ orders, web3, handlePayForOrder, handleViewDetails, handleConfirmOrder, currentAccount }) {
 
-  // Фильтруем заказы по текущему аккаунту (отправленные или полученные)
+  // Фильтруем заказы по текущему аккаунту 
   const filteredOrders = orders.filter(order => 
     order.sender.toLowerCase() === currentAccount.toLowerCase() ||
     order.recipient.toLowerCase() === currentAccount.toLowerCase()
@@ -82,7 +82,7 @@ function OrderList({ orders, web3, handlePayForOrder, handleViewDetails, handleC
                   <TableCell>{web3.utils.fromWei(order.price, 'ether')} ETH</TableCell>
                   <TableCell>{getStatusChip(order)}</TableCell>
                   <TableCell>
-                    {/* Кнопка "Оплатить" для отправителя, если заказ не оплачен */}
+                    {/* оплатить */}
                     {isSender && !order.isPaid && !order.isCancelled && !order.isCompleted && (
                       <Button 
                         variant="contained" 
@@ -93,7 +93,7 @@ function OrderList({ orders, web3, handlePayForOrder, handleViewDetails, handleC
                         Оплатить
                       </Button>
                     )}
-                    {/* Кнопка "Подтвердить получение" для получателя, если заказ оплачен и не завершен */}
+                    {/* Кнопка подтвердить получение*/}
                     {isRecipient && order.isPaid && !order.isCompleted && !order.isCancelled && (
                       <Button 
                         variant="contained" 
@@ -104,7 +104,7 @@ function OrderList({ orders, web3, handlePayForOrder, handleViewDetails, handleC
                         Подтвердить получение
                       </Button>
                     )}
-                    {/* Кнопка "Подробнее" для всех пользователей */}
+                    {/* Кнопка подробнее */}
                     <Button 
                       variant="outlined" 
                       color="primary" 

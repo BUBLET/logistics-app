@@ -25351,12 +25351,12 @@
     "5777": {
       "events": {},
       "links": {},
-      "address": "0x5BC9C909e953ac9F799F6A98Ca4119e7ad0b9A40",
-      "transactionHash": "0xa8f6cdfd04cb1253c99a6e42989d3ab75134caa692cc0185babc9f3f2a8abccf"
+      "address": "0x581E681b7370D4d556CAf07D1BD6D4ED425D1fF3",
+      "transactionHash": "0xc3498cc9c7dceaf71809681c399aa482ae8773dba9f32180cb817d5a7d52fa70"
     }
   },
   "schemaVersion": "3.4.16",
-  "updatedAt": "2024-12-03T20:03:56.017Z",
+  "updatedAt": "2025-02-15T15:28:40.395Z",
   "networkType": "ethereum",
   "devdoc": {
     "kind": "dev",

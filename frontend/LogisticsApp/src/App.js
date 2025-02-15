@@ -13,8 +13,6 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import AddOrder from './components/AddOrder';
-import OrderList from './components/OrderList';
-import Reviews from './components/Reviews';
 import Statistics from './components/Statistics';
 import CompanyManagement from './components/CompanyManagement';
 import OrderDetails from './components/OrderDetails';
@@ -42,18 +40,16 @@ function App() {
     async function initWeb3() {
       if (window.ethereum) {
         try {
-          // Запрашиваем доступ к аккаунтам MetaMask
+          // Запрос доступ к аккаунтам MetaMask
           await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-          // Инициализируем Web3 с провайдером MetaMask
           const web3Instance = new Web3(window.ethereum);
           setWeb3(web3Instance);
 
-          // Получаем список аккаунтов
           const accounts = await web3Instance.eth.getAccounts();
           setAccounts(accounts);
 
-          // Подключаемся к смарт-контракту Logistics
+          // Подключаемся к смарт-контракту
           const networkId = await web3Instance.eth.net.getId();
           const deployedNetwork = LogisticsContract.networks[networkId];
           if (!deployedNetwork) {
@@ -70,14 +66,12 @@ function App() {
           const companyAddress = await instance.methods.companyAddress().call();
           setIsCompany(accounts[0].toLowerCase() === companyAddress.toLowerCase());
 
-          // Получаем количество заказов и отзывов
           const orderCount = parseInt(await instance.methods.getOrderCount().call(), 10);
           setOrderCount(orderCount);
 
           const reviewCount = parseInt(await instance.methods.getReviewCount().call(), 10);
           setReviewCount(reviewCount);
 
-          // Получаем средний рейтинг компании
           const avgRating = await instance.methods.getAverageRating().call();
           setAverageRating(avgRating);
 
@@ -99,7 +93,7 @@ function App() {
     initWeb3();
   }, []);
 
-  // Функция для обновления списка заказов
+  // Функция обновления списка заказов
   const fetchOrders = async () => {
     if (contract && web3) {
       try {
@@ -118,7 +112,7 @@ function App() {
     }
   };
 
-  // Функция для обновления среднего рейтинга
+  // Функция обновления среднего рейтинга
   const fetchAverageRating = async () => {
     if (contract) {
       try {
@@ -137,10 +131,8 @@ function App() {
       fetchOrders();
       fetchAverageRating();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contract, web3]);
 
-  // Подписка на события смарт-контракта для обновления данных в реальном времени
   useEffect(() => {
     if (contract) {
       contract.events.OrderAdded({}, (error, event) => {
@@ -189,7 +181,6 @@ function App() {
         }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contract]);
 
   const handlePayForOrder = async (orderId, price) => {
@@ -198,7 +189,6 @@ function App() {
         .payForOrder(orderId)
         .send({ from: accounts[0], value: price });
 
-      // Обновляем список заказов после оплаты
       await fetchOrders();
 
       toast.success('Заказ успешно оплачен!');
@@ -225,7 +215,6 @@ function App() {
         return;
       }
 
-      // Запрос комментария и рейтинга
       const comment = prompt('Введите комментарий к заказу:');
       const ratingInput = prompt('Введите оценку (1-5):');
       const rating = parseInt(ratingInput, 10);
@@ -239,7 +228,6 @@ function App() {
         .completeOrder(orderId, comment, rating)
         .send({ from: accounts[0] });
 
-      // Обновляем список заказов после подтверждения
       await fetchOrders();
 
       toast.success('Заказ успешно подтвержден и отзыв оставлен!');
@@ -249,12 +237,10 @@ function App() {
     }
   };
 
-  // Функция для открытия деталей заказа
   const handleViewDetails = (orderId) => {
     setSelectedOrderId(orderId);
   };
 
-  // Функция для закрытия деталей заказа
   const handleCloseDetails = () => {
     setSelectedOrderId(null);
   };
@@ -272,7 +258,6 @@ function App() {
       <Tabs value={currentTab} onChange={handleTabChange} centered indicatorColor="primary" textColor="primary">
         <Tab label="Добавить заказ" />
         <Tab label="Мои заказы" />
-        <Tab label="Отзывы" />
         <Tab label="Статистика" />
         {isCompany && <Tab label="Управление" />}
       </Tabs>
@@ -293,11 +278,8 @@ function App() {
         />
       </Box>
 
-      <Box hidden={currentTab !== 2} sx={{ p: 3 }}>
-        <Reviews contract={contract} accounts={accounts} />
-      </Box>
 
-      <Box hidden={currentTab !== 3} sx={{ p: 3 }}>
+      <Box hidden={currentTab !== 2} sx={{ p: 3 }}>
         <Statistics 
           orderCount={orderCount} 
           reviewCount={reviewCount} 
@@ -306,12 +288,12 @@ function App() {
       </Box>
 
       {isCompany && (
-        <Box hidden={currentTab !== 4} sx={{ p: 3 }}>
+        <Box hidden={currentTab !== 3} sx={{ p: 3 }}>
           <CompanyManagement contract={contract} accounts={accounts} />
         </Box>
       )}
 
-      {/* Компонент для отображения деталей заказа */}
+      {/* Детали заказа */}
       {selectedOrderId !== null && (
         <OrderDetails
           contract={contract}

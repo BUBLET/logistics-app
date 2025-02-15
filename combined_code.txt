@@ -1,0 +1,1604 @@
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\App.css =====
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+    /* Можно настроить параметры анимации здесь */
+  }
+}
+
+.App-header {
+  background-color: #282c34; /* темный фон */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin); /* динамический размер шрифта */
+  color: white; /* белый текст */
+}
+
+.App-link {
+  color: #61dafb; /* светло-синяя ссылка */
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg); /* начальное положение */
+  }
+  to {
+    transform: rotate(360deg); /* полный оборот */
+  }
+}
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\App.js =====
+
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import Web3 from 'web3';
+import LogisticsContract from './contracts/Logistics.json';
+import { 
+  Container, 
+  Typography, 
+  Tabs, 
+  Tab, 
+  Box 
+} from '@mui/material';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+import AddOrder from './components/AddOrder';
+import OrderList from './components/OrderList';
+import Reviews from './components/Reviews';
+import Statistics from './components/Statistics';
+import CompanyManagement from './components/CompanyManagement';
+import OrderDetails from './components/OrderDetails';
+import Header from './components/Header';
+import MyOrders from './components/MyOrders';
+
+function App() {
+  const [web3, setWeb3] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [orderCount, setOrderCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [orders, setOrders] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [isCompany, setIsCompany] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [filter, setFilter] = useState({
+    status: 'all', // 'all', 'paid', 'completed', 'cancelled'
+    sender: '',
+    recipient: '',
+  });
+  const [currentTab, setCurrentTab] = useState(0);
+
+  useEffect(() => {
+    async function initWeb3() {
+      if (window.ethereum) {
+        try {
+          // Запрашиваем доступ к аккаунтам MetaMask
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+          // Инициализируем Web3 с провайдером MetaMask
+          const web3Instance = new Web3(window.ethereum);
+          setWeb3(web3Instance);
+
+          // Получаем список аккаунтов
+          const accounts = await web3Instance.eth.getAccounts();
+          setAccounts(accounts);
+
+          // Подключаемся к смарт-контракту Logistics
+          const networkId = await web3Instance.eth.net.getId();
+          const deployedNetwork = LogisticsContract.networks[networkId];
+          if (!deployedNetwork) {
+            toast.error('Смарт-контракт не развернут на выбранной сети.');
+            return;
+          }
+          const instance = new web3Instance.eth.Contract(
+            LogisticsContract.abi,
+            deployedNetwork && deployedNetwork.address
+          );
+          setContract(instance);
+
+          // Проверяем, является ли текущий аккаунт компанией
+          const companyAddress = await instance.methods.companyAddress().call();
+          setIsCompany(accounts[0].toLowerCase() === companyAddress.toLowerCase());
+
+          // Получаем количество заказов и отзывов
+          const orderCount = parseInt(await instance.methods.getOrderCount().call(), 10);
+          setOrderCount(orderCount);
+
+          const reviewCount = parseInt(await instance.methods.getReviewCount().call(), 10);
+          setReviewCount(reviewCount);
+
+          // Получаем средний рейтинг компании
+          const avgRating = await instance.methods.getAverageRating().call();
+          setAverageRating(avgRating);
+
+          // Загружаем заказы
+          const fetchedOrders = [];
+          for (let i = 0; i < orderCount; i++) {
+            const order = await instance.methods.getOrder(i).call();
+            fetchedOrders.push(order);
+          }
+          setOrders(fetchedOrders);
+        } catch (error) {
+          console.error('Ошибка при инициализации Web3:', error);
+          toast.error('Ошибка при инициализации Web3. Проверьте консоль для деталей.');
+        }
+      } else {
+        toast.error('MetaMask не обнаружен. Пожалуйста, установите MetaMask для взаимодействия с приложением.');
+      }
+    }
+    initWeb3();
+  }, []);
+
+  // Функция для обновления списка заказов
+  const fetchOrders = async () => {
+    if (contract && web3) {
+      try {
+        const count = parseInt(await contract.methods.getOrderCount().call(), 10);
+        setOrderCount(count);
+        const fetchedOrders = [];
+        for (let i = 0; i < count; i++) {
+          const order = await contract.methods.getOrder(i).call();
+          fetchedOrders.push(order);
+        }
+        setOrders(fetchedOrders);
+      } catch (error) {
+        console.error('Ошибка при получении заказов:', error);
+        toast.error('Ошибка при получении заказов.');
+      }
+    }
+  };
+
+  // Функция для обновления среднего рейтинга
+  const fetchAverageRating = async () => {
+    if (contract) {
+      try {
+        const avgRating = await contract.methods.getAverageRating().call();
+        setAverageRating(avgRating);
+      } catch (error) {
+        console.error('Ошибка при получении среднего рейтинга:', error);
+        toast.error('Ошибка при получении среднего рейтинга.');
+      }
+    }
+  };
+
+  // Обновление заказов и рейтинга после добавления нового заказа или отзыва
+  useEffect(() => {
+    if (contract && web3) {
+      fetchOrders();
+      fetchAverageRating();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract, web3]);
+
+  // Подписка на события смарт-контракта для обновления данных в реальном времени
+  useEffect(() => {
+    if (contract) {
+      contract.events.OrderAdded({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Новый заказ добавлен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderAdded:', error);
+        }
+      });
+
+      contract.events.OrderPaid({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Заказ оплачен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderPaid:', error);
+        }
+      });
+
+      contract.events.OrderCompleted({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          fetchAverageRating();
+          toast.info(`Заказ выполнен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderCompleted:', error);
+        }
+      });
+
+      contract.events.OrderCancelled({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Заказ отменён: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderCancelled:', error);
+        }
+      });
+
+      contract.events.ReviewAdded({}, (error, event) => {
+        if (!error) {
+          fetchAverageRating();
+          toast.info(`Новый отзыв добавлен к заказу: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события ReviewAdded:', error);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract]);
+
+  const handlePayForOrder = async (orderId, price) => {
+    try {
+      await contract.methods
+        .payForOrder(orderId)
+        .send({ from: accounts[0], value: price });
+
+      // Обновляем список заказов после оплаты
+      await fetchOrders();
+
+      toast.success('Заказ успешно оплачен!');
+    } catch (error) {
+      console.error('Ошибка при оплате заказа:', error);
+      toast.error('Ошибка при оплате заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  // Функция для подтверждения получения заказа получателем
+  const handleConfirmOrder = async (orderId) => {
+    try {
+      const order = orders[orderId];
+      if (!order.isPaid) {
+        toast.error('Заказ не оплачен. Нельзя подтвердить получение.');
+        return;
+      }
+      if (order.isCompleted) {
+        toast.error('Заказ уже был подтвержден.');
+        return;
+      }
+      if (order.isCancelled) {
+        toast.error('Заказ был отменен.');
+        return;
+      }
+
+      // Запрос комментария и рейтинга
+      const comment = prompt('Введите комментарий к заказу:');
+      const ratingInput = prompt('Введите оценку (1-5):');
+      const rating = parseInt(ratingInput, 10);
+
+      if (!comment || isNaN(rating) || rating < 1 || rating > 5) {
+        toast.warn('Некорректные данные для отзыва.');
+        return;
+      }
+
+      await contract.methods
+        .completeOrder(orderId, comment, rating)
+        .send({ from: accounts[0] });
+
+      // Обновляем список заказов после подтверждения
+      await fetchOrders();
+
+      toast.success('Заказ успешно подтвержден и отзыв оставлен!');
+    } catch (error) {
+      console.error('Ошибка при подтверждении заказа:', error);
+      toast.error('Ошибка при подтверждении заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  // Функция для открытия деталей заказа
+  const handleViewDetails = (orderId) => {
+    setSelectedOrderId(orderId);
+  };
+
+  // Функция для закрытия деталей заказа
+  const handleCloseDetails = () => {
+    setSelectedOrderId(null);
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
+  };
+
+  return (
+    <Container maxWidth="lg" style={{ paddingTop: '20px', paddingBottom: '20px' }}>
+      <ToastContainer />
+      <Header currentAccount={accounts[0]} />
+
+      {/* Таб навигации */}
+      <Tabs value={currentTab} onChange={handleTabChange} centered indicatorColor="primary" textColor="primary">
+        <Tab label="Добавить заказ" />
+        <Tab label="Мои заказы" />
+        <Tab label="Отзывы" />
+        <Tab label="Статистика" />
+        {isCompany && <Tab label="Управление" />}
+      </Tabs>
+
+      {/* Содержимое вкладок */}
+      <Box hidden={currentTab !== 0} sx={{ p: 3 }}>
+        <AddOrder contract={contract} accounts={accounts} web3={web3} />
+      </Box>
+
+      <Box hidden={currentTab !== 1} sx={{ p: 3 }}>
+        <MyOrders 
+          orders={orders} 
+          web3={web3} 
+          handlePayForOrder={handlePayForOrder} 
+          handleViewDetails={handleViewDetails} 
+          handleConfirmOrder={handleConfirmOrder}
+          currentAccount={accounts[0]}
+        />
+      </Box>
+
+      <Box hidden={currentTab !== 2} sx={{ p: 3 }}>
+        <Reviews contract={contract} accounts={accounts} />
+      </Box>
+
+      <Box hidden={currentTab !== 3} sx={{ p: 3 }}>
+        <Statistics 
+          orderCount={orderCount} 
+          reviewCount={reviewCount} 
+          averageRating={averageRating} 
+        />
+      </Box>
+
+      {isCompany && (
+        <Box hidden={currentTab !== 4} sx={{ p: 3 }}>
+          <CompanyManagement contract={contract} accounts={accounts} />
+        </Box>
+      )}
+
+      {/* Компонент для отображения деталей заказа */}
+      {selectedOrderId !== null && (
+        <OrderDetails
+          contract={contract}
+          web3={web3}
+          orderId={selectedOrderId}
+          open={selectedOrderId !== null}
+          handleClose={handleCloseDetails}
+        />
+      )}
+    </Container>
+  );
+}
+
+export default App;
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\App.test.js =====
+
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders learn react link', () => {
+  render(<App />);
+  const linkElement = screen.getByText(/learn react/i);
+  expect(linkElement).toBeInTheDocument();
+});
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\combine.py =====
+
+import os
+
+def collect_files(root_dir, target_dirs, target_files):
+    """
+    Собирает пути к файлам из указанных директорий и отдельных файлов.
+
+    :param root_dir: Корневая директория проекта
+    :param target_dirs: Список имен директорий для поиска файлов
+    :param target_files: Список относительных путей к отдельным файлам
+    :return: Список путей к найденным файлам
+    """
+    collected_files = []
+
+    # Поиск файлов в целевых директориях
+    for dir_name in target_dirs:
+        for current_root, dirs, files in os.walk(root_dir):
+            if os.path.basename(current_root) == dir_name:
+                for file in files:
+                    file_path = os.path.join(current_root, file)
+                    collected_files.append(file_path)
+                # Не рекурсивно ищем внутри других директорий с таким именем
+                # Если требуется рекурсивный поиск, можно убрать `dirs[:] = []`
+                dirs[:] = []  # Не углубляться дальше в поддиректории найденных папок
+
+    # Добавление отдельных файлов
+    for file_rel_path in target_files:
+        file_path = os.path.join(root_dir, file_rel_path)
+        if os.path.isfile(file_path):
+            collected_files.append(file_path)
+        else:
+            print(f"Внимание: Файл {file_rel_path} не найден и будет пропущен.")
+
+    return collected_files
+
+def combine_files(file_paths, output_file):
+    """
+    Объединяет содержимое указанных файлов в один текстовый файл.
+
+    :param file_paths: Список путей к файлам для объединения
+    :param output_file: Имя выходного текстового файла
+    """
+    with open(output_file, 'w', encoding='utf-8') as outfile:
+        for file_path in file_paths:
+            outfile.write(f"\n\n===== Содержимое файла: {file_path} =====\n\n")
+            try:
+                with open(file_path, 'r', encoding='utf-8') as infile:
+                    content = infile.read()
+                    outfile.write(content)
+            except Exception as e:
+                outfile.write(f"Ошибка при чтении файла {file_path}: {e}\n")
+
+    print(f"Все коды объединены в файл: {output_file}")
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Объединение кодов из определённых директорий и файлов в один текстовый файл.")
+    parser.add_argument('directory', nargs='?', default='./frontend/LogisticsApp/src', help='Путь к корневой директории проекта (по умолчанию текущая директория)')
+    parser.add_argument('-d', '--directories', nargs='+', default=["src", "components"], help='Список директорий для сбора файлов')
+    parser.add_argument('-f', '--files', nargs='+', default=["App.js"], help='Список отдельных файлов для включения (относительно корневой директории)')
+    parser.add_argument('-o', '--output', default='combined_code.txt', help='Имя выходного текстового файла')
+
+    args = parser.parse_args()
+
+    root_directory = os.path.abspath(args.directory)
+    target_directories = args.directories
+    target_files = args.files
+    output_filename = args.output
+
+    print(f"Корневая директория проекта: {root_directory}")
+    print(f"Целевые директории для сбора файлов: {target_directories}")
+    print(f"Отдельные файлы для включения: {target_files}")
+    print(f"Имя выходного файла: {output_filename}\n")
+
+    # Сбор путей к файлам
+    files_to_combine = collect_files(root_directory, target_directories, target_files)
+
+    if not files_to_combine:
+        print("Не найдено ни одного файла для объединения.")
+    else:
+        print(f"Найдено {len(files_to_combine)} файлов для объединения.")
+        # Объединение файлов
+        combine_files(files_to_combine, output_filename)
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\index.css =====
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\index.js =====
+
+// src/index.js
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
+import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+
+// Создаем кастомную тему
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#556cd6',
+    },
+    secondary: {
+      main: '#19857b',
+    },
+    background: {
+      default: '#f7f9fc',
+      paper: '#ffffff',
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h1: { fontSize: '2rem', fontWeight: 500 },
+    h2: { fontSize: '1.5rem', fontWeight: 500 },
+    body1: { fontSize: '1rem', lineHeight: 1.5 },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: '8px',
+        },
+      },
+    },
+  },
+});
+
+ReactDOM.render(
+  <ThemeProvider theme={theme}>
+    <CssBaseline />
+    <App />
+  </ThemeProvider>,
+  document.getElementById('root')
+);
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\logo.svg =====
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 841.9 595.3"><g fill="#61DAFB"><path d="M666.3 296.5c0-32.5-40.7-63.3-103.1-82.4 14.4-63.6 8-114.2-20.2-130.4-6.5-3.8-14.1-5.6-22.4-5.6v22.3c4.6 0 8.3.9 11.4 2.6 13.6 7.8 19.5 37.5 14.9 75.7-1.1 9.4-2.9 19.3-5.1 29.4-19.6-4.8-41-8.5-63.5-10.9-13.5-18.5-27.5-35.3-41.6-50 32.6-30.3 63.2-46.9 84-46.9V78c-27.5 0-63.5 19.6-99.9 53.6-36.4-33.8-72.4-53.2-99.9-53.2v22.3c20.7 0 51.4 16.5 84 46.6-14 14.7-28 31.4-41.3 49.9-22.6 2.4-44 6.1-63.6 11-2.3-10-4-19.7-5.2-29-4.7-38.2 1.1-67.9 14.6-75.8 3-1.8 6.9-2.6 11.5-2.6V78.5c-8.4 0-16 1.8-22.6 5.6-28.1 16.2-34.4 66.7-19.9 130.1-62.2 19.2-102.7 49.9-102.7 82.3 0 32.5 40.7 63.3 103.1 82.4-14.4 63.6-8 114.2 20.2 130.4 6.5 3.8 14.1 5.6 22.5 5.6 27.5 0 63.5-19.6 99.9-53.6 36.4 33.8 72.4 53.2 99.9 53.2 8.4 0 16-1.8 22.6-5.6 28.1-16.2 34.4-66.7 19.9-130.1 62-19.1 102.5-49.9 102.5-82.3zm-130.2-66.7c-3.7 12.9-8.3 26.2-13.5 39.5-4.1-8-8.4-16-13.1-24-4.6-8-9.5-15.8-14.4-23.4 14.2 2.1 27.9 4.7 41 7.9zm-45.8 106.5c-7.8 13.5-15.8 26.3-24.1 38.2-14.9 1.3-30 2-45.2 2-15.1 0-30.2-.7-45-1.9-8.3-11.9-16.4-24.6-24.2-38-7.6-13.1-14.5-26.4-20.8-39.8 6.2-13.4 13.2-26.8 20.7-39.9 7.8-13.5 15.8-26.3 24.1-38.2 14.9-1.3 30-2 45.2-2 15.1 0 30.2.7 45 1.9 8.3 11.9 16.4 24.6 24.2 38 7.6 13.1 14.5 26.4 20.8 39.8-6.3 13.4-13.2 26.8-20.7 39.9zm32.3-13c5.4 13.4 10 26.8 13.8 39.8-13.1 3.2-26.9 5.9-41.2 8 4.9-7.7 9.8-15.6 14.4-23.7 4.6-8 8.9-16.1 13-24.1zM421.2 430c-9.3-9.6-18.6-20.3-27.8-32 9 .4 18.2.7 27.5.7 9.4 0 18.7-.2 27.8-.7-9 11.7-18.3 22.4-27.5 32zm-74.4-58.9c-14.2-2.1-27.9-4.7-41-7.9 3.7-12.9 8.3-26.2 13.5-39.5 4.1 8 8.4 16 13.1 24 4.7 8 9.5 15.8 14.4 23.4zM420.7 163c9.3 9.6 18.6 20.3 27.8 32-9-.4-18.2-.7-27.5-.7-9.4 0-18.7.2-27.8.7 9-11.7 18.3-22.4 27.5-32zm-74 58.9c-4.9 7.7-9.8 15.6-14.4 23.7-4.6 8-8.9 16-13 24-5.4-13.4-10-26.8-13.8-39.8 13.1-3.1 26.9-5.8 41.2-7.9zm-90.5 125.2c-35.4-15.1-58.3-34.9-58.3-50.6 0-15.7 22.9-35.6 58.3-50.6 8.6-3.7 18-7 27.7-10.1 5.7 19.6 13.2 40 22.5 60.9-9.2 20.8-16.6 41.1-22.2 60.6-9.9-3.1-19.3-6.5-28-10.2zM310 490c-13.6-7.8-19.5-37.5-14.9-75.7 1.1-9.4 2.9-19.3 5.1-29.4 19.6 4.8 41 8.5 63.5 10.9 13.5 18.5 27.5 35.3 41.6 50-32.6 30.3-63.2 46.9-84 46.9-4.5-.1-8.3-1-11.3-2.7zm237.2-76.2c4.7 38.2-1.1 67.9-14.6 75.8-3 1.8-6.9 2.6-11.5 2.6-20.7 0-51.4-16.5-84-46.6 14-14.7 28-31.4 41.3-49.9 22.6-2.4 44-6.1 63.6-11 2.3 10.1 4.1 19.8 5.2 29.1zm38.5-66.7c-8.6 3.7-18 7-27.7 10.1-5.7-19.6-13.2-40-22.5-60.9 9.2-20.8 16.6-41.1 22.2-60.6 9.9 3.1 19.3 6.5 28.1 10.2 35.4 15.1 58.3 34.9 58.3 50.6-.1 15.7-23 35.6-58.4 50.6zM320.8 78.4z"/><circle cx="420.9" cy="296.5" r="45.7"/><path d="M520.5 78.1z"/></g></svg>
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\reportWebVitals.js =====
+
+const reportWebVitals = onPerfEntry => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
+    });
+  }
+};
+
+export default reportWebVitals;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\setupTests.js =====
+
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\AddOrder.js =====
+
+import React, { useState } from 'react';
+import { 
+  TextField, 
+  Button, 
+  Paper, 
+  Typography 
+} from '@mui/material';
+import { toast } from 'react-toastify';
+
+const RATE_PER_KM = 0.01; // Ставка за километр в ETH
+
+function AddOrder({ contract, accounts, web3 }) {
+  const [newOrder, setNewOrder] = useState({
+    recipient: '',
+    distance: '',
+    cargoType: '',
+    price: '',
+  });
+
+  // Функция для расчета цены на основе расстояния
+  const calculatePrice = (distance) => {
+    const price = distance * RATE_PER_KM;
+    return price.toFixed(4); // Округление до 4 знаков после запятой
+  };
+
+  const handleDistanceChange = (e) => {
+    const distance = e.target.value;
+    const price = distance ? calculatePrice(distance) : '';
+    setNewOrder({ ...newOrder, distance, price });
+  };
+
+  const handleAddOrder = async () => {
+    try {
+      if (!newOrder.recipient || !newOrder.distance || !newOrder.cargoType || !newOrder.price) {
+        toast.warn('Пожалуйста, заполните все поля для заказа.');
+        return;
+      }
+
+      const priceInWei = web3.utils.toWei(newOrder.price, 'ether');
+      await contract.methods
+        .addOrder(newOrder.recipient, newOrder.distance, newOrder.cargoType, priceInWei)
+        .send({ from: accounts[0] });
+
+      // Очистка формы после успешного добавления
+      setNewOrder({
+        recipient: '',
+        distance: '',
+        cargoType: '',
+        price: '',
+      });
+
+      toast.success('Заказ успешно добавлен!');
+    } catch (error) {
+      console.error('Ошибка при добавлении заказа:', error);
+      toast.error('Ошибка при добавлении заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  return (
+    <Paper elevation={3} sx={{ padding: '30px', marginBottom: '20px', borderRadius: '10px', backgroundColor: '#f7f9fc' }}>
+      <Typography variant="h6" gutterBottom>Добавить новый заказ</Typography>
+      <form noValidate autoComplete="off">
+        <TextField
+          label="Получатель"
+          value={newOrder.recipient}
+          onChange={(e) => setNewOrder({ ...newOrder, recipient: e.target.value })}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Расстояние (км)"
+          type="number"
+          value={newOrder.distance}
+          onChange={handleDistanceChange}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Тип груза"
+          value={newOrder.cargoType}
+          onChange={(e) => setNewOrder({ ...newOrder, cargoType: e.target.value })}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Цена (ETH)"
+          type="number"
+          value={newOrder.price}
+          InputProps={{
+            readOnly: true,
+          }}
+          fullWidth
+          margin="normal"
+        />
+        <Button variant="contained" color="primary" onClick={handleAddOrder} style={{ marginTop: '10px' }}>
+          Добавить заказ
+        </Button>
+      </form>
+    </Paper>
+  );
+}
+
+export default AddOrder;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\CompanyManagement.js =====
+
+import React from 'react';
+import { Typography, Paper, Button } from '@mui/material';
+import { toast } from 'react-toastify';
+
+function CompanyManagement({ contract, accounts }) {
+  const handleWithdrawFunds = async () => {
+    try {
+      await contract.methods
+        .withdrawCompanyFunds()
+        .send({ from: accounts[0] });
+
+      toast.success('Средства успешно выведены!');
+    } catch (error) {
+      console.error('Ошибка при выводе средств:', error);
+      toast.error('Ошибка при выводе средств. Проверьте консоль для деталей.');
+    }
+  };
+
+  return (
+    <Paper elevation={3} sx={{ padding: '30px', marginBottom: '20px', borderRadius: '10px', backgroundColor: '#f7f9fc' }}>
+      <Typography variant="h6" gutterBottom>Управление средствами компании</Typography>
+      <Button variant="contained" color="secondary" onClick={handleWithdrawFunds}>
+        Вывести средства компании
+      </Button>
+    </Paper>
+  );
+}
+
+export default CompanyManagement;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\Header.js =====
+
+import React from 'react';
+import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
+
+function Header({ currentAccount, handleTabChange, currentTab }) {
+  // Функция для обрезки адреса аккаунта
+  const truncateAddress = (address) => {
+    if (!address) return '';
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  return (
+    <AppBar position="static" elevation={1} sx={{ backgroundColor: '#ffffff', color: '#333' }}>
+
+      <Toolbar>
+        <Typography variant="h6" style={{ flexGrow: 1 }}>
+          Logistics App
+        </Typography>
+        <Box>
+          <Typography variant="body1" style={{ marginRight: '20px' }}>
+            Аккаунт: {truncateAddress(currentAccount)}
+          </Typography>
+          {/* Можно добавить дополнительные кнопки или меню здесь */}
+        </Box>
+      </Toolbar>
+    </AppBar>
+  );
+}
+
+export default Header;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\MyOrders.js =====
+
+import React from 'react';
+import { 
+  Typography, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Paper, 
+  Button,
+  Chip
+} from '@mui/material';
+import { toast } from 'react-toastify';
+
+function MyOrders({ orders, web3, handlePayForOrder, handleViewDetails, handleConfirmOrder, currentAccount }) {
+
+  // Фильтруем заказы по текущему аккаунту (отправленные или полученные)
+  const sentOrders = orders.filter(order => order.sender.toLowerCase() === currentAccount.toLowerCase());
+  const receivedOrders = orders.filter(order => order.recipient.toLowerCase() === currentAccount.toLowerCase());
+
+  // Функция для получения цвета чипа в зависимости от статуса
+  const getStatusChip = (order) => {
+    let status = '';
+    let color = 'default';
+
+    if (order.isCancelled) {
+      status = 'Отменён';
+      color = 'error';
+    } else if (order.isCompleted) {
+      status = 'Выполнен';
+      color = 'success';
+    } else if (order.isPaid) {
+      status = 'Оплачен';
+      color = 'primary';
+    } else {
+      status = 'Не оплачен';
+      color = 'default';
+    }
+
+    return <Chip label={status} color={color} />;
+  };
+
+  const renderOrders = (ordersList, type) => (
+    <>
+      <Typography variant="h6" gutterBottom>{type === 'sent' ? 'Отправленные заказы' : 'Полученные заказы'}</Typography>
+      <TableContainer component={Paper} elevation={1} sx={{ borderRadius: '10px', backgroundColor: '#ffffff', padding: '10px' }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>Отправитель</TableCell>
+              <TableCell>Получатель</TableCell>
+              <TableCell>Расстояние (км)</TableCell>
+              <TableCell>Тип груза</TableCell>
+              <TableCell>Цена (ETH)</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell>Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {ordersList.length > 0 ? ordersList.map((order, index) => {
+              const orderIndex = orders.findIndex(o => 
+                o.sender.toLowerCase() === order.sender.toLowerCase() && 
+                o.recipient.toLowerCase() === order.recipient.toLowerCase() &&
+                o.distance === order.distance &&
+                o.cargoType === order.cargoType &&
+                o.price === order.price
+              );
+
+              const isSender = type === 'sent';
+              const isRecipient = type === 'received';
+
+              return (
+                <TableRow key={index}>
+                  <TableCell>{orderIndex}</TableCell>
+                  <TableCell>{order.sender}</TableCell>
+                  <TableCell>{order.recipient}</TableCell>
+                  <TableCell>{order.distance}</TableCell>
+                  <TableCell>{order.cargoType}</TableCell>
+                  <TableCell>{web3.utils.fromWei(order.price, 'ether')} ETH</TableCell>
+                  <TableCell>{getStatusChip(order)}</TableCell>
+                  <TableCell>
+                    {/* Кнопка "Оплатить" для отправителя, если заказ не оплачен */}
+                    {isSender && !order.isPaid && !order.isCancelled && !order.isCompleted && (
+                      <Button 
+                        variant="contained" 
+                        color="secondary" 
+                        onClick={() => handlePayForOrder(orderIndex, order.price)}
+                        style={{ marginRight: '5px' }}
+                      >
+                        Оплатить
+                      </Button>
+                    )}
+                    {/* Кнопка "Подтвердить получение" для получателя, если заказ оплачен и не завершен */}
+                    {isRecipient && order.isPaid && !order.isCompleted && !order.isCancelled && (
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        onClick={() => handleConfirmOrder(orderIndex)}
+                        style={{ marginRight: '5px' }}
+                      >
+                        Подтвердить получение
+                      </Button>
+                    )}
+                    {/* Кнопка "Подробнее" для всех пользователей */}
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      onClick={() => handleViewDetails(orderIndex)}
+                    >
+                      Подробнее
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            }) : (
+              <TableRow>
+                <TableCell colSpan={8} align="center">Нет доступных заказов.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </>
+  );
+
+  return (
+    <div>
+      {renderOrders(sentOrders, 'sent')}
+      {renderOrders(receivedOrders, 'received')}
+    </div>
+  );
+}
+
+export default MyOrders;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\OrderDetails.js =====
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  Button, 
+  Typography, 
+  List, 
+  ListItem, 
+  ListItemText,
+  TextField
+} from '@mui/material';
+import { toast } from 'react-toastify';
+
+function OrderDetails({ contract, web3, orderId, open, handleClose }) {
+  const [order, setOrder] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [comment, setComment] = useState('');
+  const [rating, setRating] = useState(1);
+  const [isRecipient, setIsRecipient] = useState(false);
+
+  useEffect(() => {
+    async function fetchOrderDetails() {
+      if (contract && web3 && orderId >= 0) {
+        try {
+          const orderData = await contract.methods.getOrder(orderId).call();
+          setOrder(orderData);
+
+          const fetchedReviews = await contract.methods.getReviewsByOrder(orderId).call();
+          setReviews(fetchedReviews);
+
+          // Проверяем, является ли текущий пользователь получателем
+          const accounts = await web3.eth.getAccounts();
+          setIsRecipient(orderData.recipient.toLowerCase() === accounts[0].toLowerCase());
+        } catch (error) {
+          console.error('Ошибка при получении деталей заказа:', error);
+        }
+      }
+    }
+    if (open) {
+      fetchOrderDetails();
+    }
+  }, [contract, web3, orderId, open]);
+
+  if (!order) {
+    return null;
+  }
+
+  const handleConfirm = async () => {
+    try {
+      if (!comment || isNaN(rating) || rating < 1 || rating > 5) {
+        toast.warn('Пожалуйста, введите комментарий и оценку от 1 до 5.');
+        return;
+      }
+
+      await contract.methods
+        .completeOrder(orderId, comment, rating)
+        .send({ from: order.recipient });
+
+      // Обновляем данные после подтверждения
+      const updatedOrder = await contract.methods.getOrder(orderId).call();
+      setOrder(updatedOrder);
+
+      const updatedReviews = await contract.methods.getReviewsByOrder(orderId).call();
+      setReviews(updatedReviews);
+
+      toast.success('Заказ успешно подтвержден и отзыв оставлен!');
+    } catch (error) {
+      console.error('Ошибка при подтверждении заказа:', error);
+      toast.error('Ошибка при подтверждении заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <DialogTitle>Детали заказа #{orderId}</DialogTitle>
+      <DialogContent dividers sx={{ backgroundColor: '#fafafa' }}>
+        <Typography variant="body1"><strong>Отправитель:</strong> {order.sender}</Typography>
+        <Typography variant="body1"><strong>Получатель:</strong> {order.recipient}</Typography>
+        <Typography variant="body1"><strong>Расстояние:</strong> {order.distance} км</Typography>
+        <Typography variant="body1"><strong>Тип груза:</strong> {order.cargoType}</Typography>
+        <Typography variant="body1"><strong>Цена:</strong> {web3.utils.fromWei(order.price, 'ether')} ETH</Typography>
+        <Typography variant="body1"><strong>Статус:</strong>
+          {order.isCancelled
+            ? ' Отменён'
+            : order.isCompleted
+            ? ' Выполнен'
+            : order.isPaid
+            ? ' Оплачен'
+            : ' Не оплачен'}
+        </Typography>
+
+        <Typography variant="h6" style={{ marginTop: '20px' }}>Отзывы:</Typography>
+        {reviews.length > 0 ? (
+          <List>
+            {reviews.map((review, index) => (
+              <ListItem key={index} alignItems="flex-start">
+                <ListItemText
+                  primary={`Рейтинг: ${review.rating}`}
+                  secondary={
+                    <>
+                      <Typography variant="body2" color="textPrimary">
+                        Комментарий: {review.comment}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        Отзывчик: {review.reviewer}
+                      </Typography>
+                    </>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        ) : (
+          <Typography variant="body2">Нет отзывов.</Typography>
+        )}
+
+        {/* Форма для подтверждения заказа и добавления отзыва */}
+        {isRecipient && order.isPaid && !order.isCompleted && !order.isCancelled && (
+          <div style={{ marginTop: '20px' }}>
+            <Typography variant="h6">Подтвердить получение заказа</Typography>
+            <TextField
+              label="Комментарий"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              fullWidth
+              margin="normal"
+            />
+            <TextField
+              label="Оценка"
+              type="number"
+              inputProps={{ min: 1, max: 5 }}
+              value={rating}
+              onChange={(e) => setRating(e.target.value)}
+              fullWidth
+              margin="normal"
+            />
+            <Button variant="contained" color="success" onClick={handleConfirm} style={{ marginTop: '10px' }}>
+              Подтвердить и оставить отзыв
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} color="primary">Закрыть</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+export default OrderDetails;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\OrderList.js =====
+
+import React from 'react';
+import { 
+  Typography, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Paper, 
+  Button,
+  Chip
+} from '@mui/material';
+import { toast } from 'react-toastify';
+
+function OrderList({ orders, web3, handlePayForOrder, handleViewDetails, handleConfirmOrder, currentAccount }) {
+
+  // Фильтруем заказы по текущему аккаунту (отправленные или полученные)
+  const filteredOrders = orders.filter(order => 
+    order.sender.toLowerCase() === currentAccount.toLowerCase() ||
+    order.recipient.toLowerCase() === currentAccount.toLowerCase()
+  );
+
+  // Функция для получения цвета чипа в зависимости от статуса
+  const getStatusChip = (order) => {
+    let status = '';
+    let color = 'default';
+
+    if (order.isCancelled) {
+      status = 'Отменён';
+      color = 'error';
+    } else if (order.isCompleted) {
+      status = 'Выполнен';
+      color = 'success';
+    } else if (order.isPaid) {
+      status = 'Оплачен';
+      color = 'primary';
+    } else {
+      status = 'Не оплачен';
+      color = 'default';
+    }
+
+    return <Chip label={status} color={color} />;
+  };
+
+  return (
+    <div>
+      <Typography variant="h6" gutterBottom>Список заказов</Typography>
+      <TableContainer component={Paper} style={{ marginBottom: '20px' }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>Отправитель</TableCell>
+              <TableCell>Получатель</TableCell>
+              <TableCell>Расстояние (км)</TableCell>
+              <TableCell>Тип груза</TableCell>
+              <TableCell>Цена (ETH)</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell>Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredOrders.length > 0 ? filteredOrders.map((order, index) => {
+              const isSender = order.sender.toLowerCase() === currentAccount.toLowerCase();
+              const isRecipient = order.recipient.toLowerCase() === currentAccount.toLowerCase();
+              const orderIndex = orders.findIndex(o => 
+                o.sender.toLowerCase() === order.sender.toLowerCase() && 
+                o.recipient.toLowerCase() === order.recipient.toLowerCase() &&
+                o.distance === order.distance &&
+                o.cargoType === order.cargoType &&
+                o.price === order.price
+              );
+
+              return (
+                <TableRow key={index}>
+                  <TableCell>{orderIndex}</TableCell>
+                  <TableCell>{order.sender}</TableCell>
+                  <TableCell>{order.recipient}</TableCell>
+                  <TableCell>{order.distance}</TableCell>
+                  <TableCell>{order.cargoType}</TableCell>
+                  <TableCell>{web3.utils.fromWei(order.price, 'ether')} ETH</TableCell>
+                  <TableCell>{getStatusChip(order)}</TableCell>
+                  <TableCell>
+                    {/* Кнопка "Оплатить" для отправителя, если заказ не оплачен */}
+                    {isSender && !order.isPaid && !order.isCancelled && !order.isCompleted && (
+                      <Button 
+                        variant="contained" 
+                        color="secondary" 
+                        onClick={() => handlePayForOrder(orderIndex, order.price)}
+                        style={{ marginRight: '5px' }}
+                      >
+                        Оплатить
+                      </Button>
+                    )}
+                    {/* Кнопка "Подтвердить получение" для получателя, если заказ оплачен и не завершен */}
+                    {isRecipient && order.isPaid && !order.isCompleted && !order.isCancelled && (
+                      <Button 
+                        variant="contained" 
+                        color="success" 
+                        onClick={() => handleConfirmOrder(orderIndex)}
+                        style={{ marginRight: '5px' }}
+                      >
+                        Подтвердить получение
+                      </Button>
+                    )}
+                    {/* Кнопка "Подробнее" для всех пользователей */}
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      onClick={() => handleViewDetails(orderIndex)}
+                    >
+                      Подробнее
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            }) : (
+              <TableRow>
+                <TableCell colSpan={8} align="center">Нет доступных заказов.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </div>
+  );
+}
+
+export default OrderList;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\Reviews.js =====
+
+import React, { useState } from 'react';
+import { 
+  TextField, 
+  Button, 
+  Paper, 
+  Typography 
+} from '@mui/material';
+import { toast } from 'react-toastify';
+
+function Reviews({ contract, accounts }) {
+  const [newReview, setNewReview] = useState({
+    orderId: '',
+    comment: '',
+    rating: 1,
+  });
+
+  const handleCompleteOrder = async () => {
+    try {
+      if (!newReview.orderId || !newReview.comment || !newReview.rating) {
+        toast.warn('Пожалуйста, заполните все поля для отзыва.');
+        return;
+      }
+
+      await contract.methods
+        .completeOrder(newReview.orderId, newReview.comment, newReview.rating)
+        .send({ from: accounts[0] });
+
+      // Очистка формы после успешного добавления
+      setNewReview({
+        orderId: '',
+        comment: '',
+        rating: 1,
+      });
+
+      toast.success('Заказ успешно завершён и отзыв оставлен!');
+    } catch (error) {
+      console.error('Ошибка при выполнении заказа:', error);
+      toast.error('Ошибка при выполнении заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  return (
+    <Paper elevation={3} sx={{ padding: '30px', marginBottom: '20px', borderRadius: '10px', backgroundColor: '#f7f9fc' }}>
+      <Typography variant="h6" gutterBottom>Оставить отзыв</Typography>
+      <form noValidate autoComplete="off">
+        <TextField
+          label="ID заказа"
+          type="number"
+          value={newReview.orderId}
+          onChange={(e) => setNewReview({ ...newReview, orderId: e.target.value })}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Комментарий"
+          value={newReview.comment}
+          onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Оценка"
+          type="number"
+          inputProps={{ min: 1, max: 5 }}
+          value={newReview.rating}
+          onChange={(e) => setNewReview({ ...newReview, rating: e.target.value })}
+          fullWidth
+          margin="normal"
+        />
+        <Button variant="contained" color="primary" onClick={handleCompleteOrder} style={{ marginTop: '10px' }}>
+          Оставить отзыв
+        </Button>
+      </form>
+    </Paper>
+  );
+}
+
+export default Reviews;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\components\Statistics.js =====
+
+import React from 'react';
+import { Typography, Paper } from '@mui/material';
+
+function Statistics({ orderCount, reviewCount, averageRating }) {
+  return (
+    <Paper elevation={3} sx={{ padding: '30px', marginBottom: '20px', borderRadius: '10px', backgroundColor: '#f7f9fc' }}>      <Typography variant="h6" gutterBottom>Статистика</Typography>
+      <Typography variant="body1"><strong>Количество заказов:</strong> {orderCount}</Typography>
+      <Typography variant="body1"><strong>Количество отзывов:</strong> {reviewCount}</Typography>
+      <Typography variant="body1"><strong>Средний рейтинг компании:</strong> {averageRating}</Typography>
+    </Paper>
+  );
+}
+
+export default Statistics;
+
+
+===== Содержимое файла: D:\Мисис\blockchain_kr\frontend\LogisticsApp\src\App.js =====
+
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import Web3 from 'web3';
+import LogisticsContract from './contracts/Logistics.json';
+import { 
+  Container, 
+  Typography, 
+  Tabs, 
+  Tab, 
+  Box 
+} from '@mui/material';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+import AddOrder from './components/AddOrder';
+import OrderList from './components/OrderList';
+import Reviews from './components/Reviews';
+import Statistics from './components/Statistics';
+import CompanyManagement from './components/CompanyManagement';
+import OrderDetails from './components/OrderDetails';
+import Header from './components/Header';
+import MyOrders from './components/MyOrders';
+
+function App() {
+  const [web3, setWeb3] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [orderCount, setOrderCount] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [orders, setOrders] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [isCompany, setIsCompany] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [filter, setFilter] = useState({
+    status: 'all', // 'all', 'paid', 'completed', 'cancelled'
+    sender: '',
+    recipient: '',
+  });
+  const [currentTab, setCurrentTab] = useState(0);
+
+  useEffect(() => {
+    async function initWeb3() {
+      if (window.ethereum) {
+        try {
+          // Запрашиваем доступ к аккаунтам MetaMask
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+          // Инициализируем Web3 с провайдером MetaMask
+          const web3Instance = new Web3(window.ethereum);
+          setWeb3(web3Instance);
+
+          // Получаем список аккаунтов
+          const accounts = await web3Instance.eth.getAccounts();
+          setAccounts(accounts);
+
+          // Подключаемся к смарт-контракту Logistics
+          const networkId = await web3Instance.eth.net.getId();
+          const deployedNetwork = LogisticsContract.networks[networkId];
+          if (!deployedNetwork) {
+            toast.error('Смарт-контракт не развернут на выбранной сети.');
+            return;
+          }
+          const instance = new web3Instance.eth.Contract(
+            LogisticsContract.abi,
+            deployedNetwork && deployedNetwork.address
+          );
+          setContract(instance);
+
+          // Проверяем, является ли текущий аккаунт компанией
+          const companyAddress = await instance.methods.companyAddress().call();
+          setIsCompany(accounts[0].toLowerCase() === companyAddress.toLowerCase());
+
+          // Получаем количество заказов и отзывов
+          const orderCount = parseInt(await instance.methods.getOrderCount().call(), 10);
+          setOrderCount(orderCount);
+
+          const reviewCount = parseInt(await instance.methods.getReviewCount().call(), 10);
+          setReviewCount(reviewCount);
+
+          // Получаем средний рейтинг компании
+          const avgRating = await instance.methods.getAverageRating().call();
+          setAverageRating(avgRating);
+
+          // Загружаем заказы
+          const fetchedOrders = [];
+          for (let i = 0; i < orderCount; i++) {
+            const order = await instance.methods.getOrder(i).call();
+            fetchedOrders.push(order);
+          }
+          setOrders(fetchedOrders);
+        } catch (error) {
+          console.error('Ошибка при инициализации Web3:', error);
+          toast.error('Ошибка при инициализации Web3. Проверьте консоль для деталей.');
+        }
+      } else {
+        toast.error('MetaMask не обнаружен. Пожалуйста, установите MetaMask для взаимодействия с приложением.');
+      }
+    }
+    initWeb3();
+  }, []);
+
+  // Функция для обновления списка заказов
+  const fetchOrders = async () => {
+    if (contract && web3) {
+      try {
+        const count = parseInt(await contract.methods.getOrderCount().call(), 10);
+        setOrderCount(count);
+        const fetchedOrders = [];
+        for (let i = 0; i < count; i++) {
+          const order = await contract.methods.getOrder(i).call();
+          fetchedOrders.push(order);
+        }
+        setOrders(fetchedOrders);
+      } catch (error) {
+        console.error('Ошибка при получении заказов:', error);
+        toast.error('Ошибка при получении заказов.');
+      }
+    }
+  };
+
+  // Функция для обновления среднего рейтинга
+  const fetchAverageRating = async () => {
+    if (contract) {
+      try {
+        const avgRating = await contract.methods.getAverageRating().call();
+        setAverageRating(avgRating);
+      } catch (error) {
+        console.error('Ошибка при получении среднего рейтинга:', error);
+        toast.error('Ошибка при получении среднего рейтинга.');
+      }
+    }
+  };
+
+  // Обновление заказов и рейтинга после добавления нового заказа или отзыва
+  useEffect(() => {
+    if (contract && web3) {
+      fetchOrders();
+      fetchAverageRating();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract, web3]);
+
+  // Подписка на события смарт-контракта для обновления данных в реальном времени
+  useEffect(() => {
+    if (contract) {
+      contract.events.OrderAdded({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Новый заказ добавлен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderAdded:', error);
+        }
+      });
+
+      contract.events.OrderPaid({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Заказ оплачен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderPaid:', error);
+        }
+      });
+
+      contract.events.OrderCompleted({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          fetchAverageRating();
+          toast.info(`Заказ выполнен: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderCompleted:', error);
+        }
+      });
+
+      contract.events.OrderCancelled({}, (error, event) => {
+        if (!error) {
+          fetchOrders();
+          toast.info(`Заказ отменён: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события OrderCancelled:', error);
+        }
+      });
+
+      contract.events.ReviewAdded({}, (error, event) => {
+        if (!error) {
+          fetchAverageRating();
+          toast.info(`Новый отзыв добавлен к заказу: ID ${event.returnValues.orderId}`);
+        } else {
+          console.error('Ошибка события ReviewAdded:', error);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contract]);
+
+  const handlePayForOrder = async (orderId, price) => {
+    try {
+      await contract.methods
+        .payForOrder(orderId)
+        .send({ from: accounts[0], value: price });
+
+      // Обновляем список заказов после оплаты
+      await fetchOrders();
+
+      toast.success('Заказ успешно оплачен!');
+    } catch (error) {
+      console.error('Ошибка при оплате заказа:', error);
+      toast.error('Ошибка при оплате заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  // Функция для подтверждения получения заказа получателем
+  const handleConfirmOrder = async (orderId) => {
+    try {
+      const order = orders[orderId];
+      if (!order.isPaid) {
+        toast.error('Заказ не оплачен. Нельзя подтвердить получение.');
+        return;
+      }
+      if (order.isCompleted) {
+        toast.error('Заказ уже был подтвержден.');
+        return;
+      }
+      if (order.isCancelled) {
+        toast.error('Заказ был отменен.');
+        return;
+      }
+
+      // Запрос комментария и рейтинга
+      const comment = prompt('Введите комментарий к заказу:');
+      const ratingInput = prompt('Введите оценку (1-5):');
+      const rating = parseInt(ratingInput, 10);
+
+      if (!comment || isNaN(rating) || rating < 1 || rating > 5) {
+        toast.warn('Некорректные данные для отзыва.');
+        return;
+      }
+
+      await contract.methods
+        .completeOrder(orderId, comment, rating)
+        .send({ from: accounts[0] });
+
+      // Обновляем список заказов после подтверждения
+      await fetchOrders();
+
+      toast.success('Заказ успешно подтвержден и отзыв оставлен!');
+    } catch (error) {
+      console.error('Ошибка при подтверждении заказа:', error);
+      toast.error('Ошибка при подтверждении заказа. Проверьте консоль для деталей.');
+    }
+  };
+
+  // Функция для открытия деталей заказа
+  const handleViewDetails = (orderId) => {
+    setSelectedOrderId(orderId);
+  };
+
+  // Функция для закрытия деталей заказа
+  const handleCloseDetails = () => {
+    setSelectedOrderId(null);
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setCurrentTab(newValue);
+  };
+
+  return (
+    <Container maxWidth="lg" style={{ paddingTop: '20px', paddingBottom: '20px' }}>
+      <ToastContainer />
+      <Header currentAccount={accounts[0]} />
+
+      {/* Таб навигации */}
+      <Tabs value={currentTab} onChange={handleTabChange} centered indicatorColor="primary" textColor="primary">
+        <Tab label="Добавить заказ" />
+        <Tab label="Мои заказы" />
+        <Tab label="Отзывы" />
+        <Tab label="Статистика" />
+        {isCompany && <Tab label="Управление" />}
+      </Tabs>
+
+      {/* Содержимое вкладок */}
+      <Box hidden={currentTab !== 0} sx={{ p: 3 }}>
+        <AddOrder contract={contract} accounts={accounts} web3={web3} />
+      </Box>
+
+      <Box hidden={currentTab !== 1} sx={{ p: 3 }}>
+        <MyOrders 
+          orders={orders} 
+          web3={web3} 
+          handlePayForOrder={handlePayForOrder} 
+          handleViewDetails={handleViewDetails} 
+          handleConfirmOrder={handleConfirmOrder}
+          currentAccount={accounts[0]}
+        />
+      </Box>
+
+      <Box hidden={currentTab !== 2} sx={{ p: 3 }}>
+        <Reviews contract={contract} accounts={accounts} />
+      </Box>
+
+      <Box hidden={currentTab !== 3} sx={{ p: 3 }}>
+        <Statistics 
+          orderCount={orderCount} 
+          reviewCount={reviewCount} 
+          averageRating={averageRating} 
+        />
+      </Box>
+
+      {isCompany && (
+        <Box hidden={currentTab !== 4} sx={{ p: 3 }}>
+          <CompanyManagement contract={contract} accounts={accounts} />
+        </Box>
+      )}
+
+      {/* Компонент для отображения деталей заказа */}
+      {selectedOrderId !== null && (
+        <OrderDetails
+          contract={contract}
+          web3={web3}
+          orderId={selectedOrderId}
+          open={selectedOrderId !== null}
+          handleClose={handleCloseDetails}
+        />
+      )}
+    </Container>
+  );
+}
+
+export default App;
