@@ -1,4 +1,3 @@
-// src/components/MyOrders.js
 import React from 'react';
 import { 
   Typography, 

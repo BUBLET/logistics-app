@@ -1,4 +1,3 @@
-// src/components/CompanyManagement.js
 import React from 'react';
 import { Typography, Paper, Button } from '@mui/material';
 import { toast } from 'react-toastify';

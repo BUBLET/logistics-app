@@ -1,4 +1,3 @@
-// src/components/Header.js
 import React from 'react';
 import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 

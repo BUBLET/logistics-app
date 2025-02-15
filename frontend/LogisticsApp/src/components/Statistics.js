@@ -1,4 +1,3 @@
-// src/components/Statistics.js
 import React from 'react';
 import { Typography, Paper } from '@mui/material';
 
