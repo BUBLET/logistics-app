@@ -2,7 +2,7 @@
 node_modules/
 .cache/
 combine.py
-combined_code.py
+combined_code.txt
 generate_structure.py
 
 # Логи и системные файлы
