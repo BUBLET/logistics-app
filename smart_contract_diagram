@@ -1,0 +1,29 @@
+// Схема смарт-контракта
+digraph {
+	subgraph cluster_functions {
+		color=lightgrey style=filled
+		label="Функции смарт-контракта"
+		addOrder [label="Регистрация заказа
+(addOrder)"]
+		payForOrder [label="Обработка платежей
+(payForOrder)"]
+		completeOrder [label="Фиксация отзыва
+(completeOrder)"]
+		cancelOrder [label="Отмена заказа
+(cancelOrder)"]
+	}
+	subgraph cluster_events {
+		color=lightblue style=filled
+		label="События смарт-контракта"
+		OrderAdded [label=OrderAdded]
+		OrderPaid [label=OrderPaid]
+		OrderCompleted [label=OrderCompleted]
+		ReviewAdded [label=ReviewAdded]
+		OrderCancelled [label=OrderCancelled]
+	}
+	addOrder -> OrderAdded [label="создаёт"]
+	payForOrder -> OrderPaid [label="создаёт"]
+	completeOrder -> OrderCompleted [label="создаёт"]
+	completeOrder -> ReviewAdded [label="создаёт"]
+	cancelOrder -> OrderCancelled [label="создаёт"]
+}

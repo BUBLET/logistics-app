@@ -4,41 +4,36 @@ pragma solidity >=0.8.2 <0.9.0;
 
 contract Logistics {
 
-    // Структура для хранения информации о заказе
     struct Order {
-        address sender;      // Адрес отправителя
-        address recipient;   // Адрес получателя
-        uint distance;       // Расстояние между пунктами отправления и назначения
-        string cargoType;    // Тип груза
-        uint price;          // Стоимость заказа (в wei)
-        bool isPaid;         // Статус оплаты заказа
-        bool isCompleted;    // Флаг, указывающий на то, выполнен ли заказ
-        bool isCancelled;    // Флаг, указывающий, отменен ли заказ
+        address sender;      
+        address recipient;   
+        uint distance;       
+        string cargoType;    
+        uint price;          
+        bool isPaid;         
+        bool isCompleted;    
+        bool isCancelled;    
     }
 
-    // Структура для хранения информации об отзыве
+
     struct Review {
-        uint orderId;        // Идентификатор заказа, к которому относится отзыв
-        address reviewer;    // Адрес участника, оставившего отзыв
-        string comment;      // Текст отзыва
-        uint rating;         // Оценка выполнения заказа от 1 до 5
+        uint orderId;        
+        address reviewer;    
+        string comment;      
+        uint rating;        
     }
 
-    // Массивы для хранения всех заказов и отзывов
     Order[] public orders;
     Review[] public reviews;
 
-    // Адрес компании (контракта)
     address public companyAddress;
 
-    // События для отслеживания действий
     event OrderAdded(uint orderId, address sender, address recipient, uint price);
     event OrderPaid(uint orderId, uint amount);
     event OrderCompleted(uint orderId);
     event OrderCancelled(uint orderId);
     event ReviewAdded(uint orderId, address reviewer, uint rating);
 
-    // Конструктор контракта
     constructor() {
         companyAddress = msg.sender;
     }
@@ -54,7 +49,7 @@ contract Logistics {
         _;
     }
 
-    // Функция для добавления нового заказа (без оплаты)
+    // Функция для добавления нового заказа
     function addOrder(address _recipient, uint _distance, string memory _cargoType, uint _price) public {
         require(_recipient != msg.sender, "Sender and recipient cannot be the same person");
         orders.push(Order(msg.sender, _recipient, _distance, _cargoType, _price, false, false, false));
@@ -72,7 +67,7 @@ contract Logistics {
         emit OrderPaid(_orderId, msg.value);
     }
 
-    // Функция для выполнения заказа и оставления отзыва
+    // Функция для выполнения заказа
     function completeOrder(uint _orderId, string memory _comment, uint _rating) public onlyRecipient(_orderId) {
         Order storage order = orders[_orderId];
         require(order.isPaid, "Order must be paid before completion");
@@ -82,15 +77,13 @@ contract Logistics {
 
         order.isCompleted = true;
 
-        // Добавляем новый отзыв
         reviews.push(Review(_orderId, msg.sender, _comment, _rating));
         emit ReviewAdded(_orderId, msg.sender, _rating);
 
         emit OrderCompleted(_orderId);
-        // Средства остаются на контракте (компании)
+        // Средства остаются на контракте
     }
 
-    // Функция для отмены заказа
     function cancelOrder(uint _orderId) public onlySender(_orderId) {
         Order storage order = orders[_orderId];
         require(!order.isCompleted, "You cannot cancel a completed order");
@@ -98,7 +91,6 @@ contract Logistics {
 
         order.isCancelled = true;
 
-        // Возвращаем средства отправителю при отмене заказа, если он был оплачен
         if (order.isPaid) {
             uint refundAmount = order.price;
             order.isPaid = false;
@@ -109,17 +101,14 @@ contract Logistics {
         emit OrderCancelled(_orderId);
     }
 
-    // Функция для получения количества заказов в системе
     function getOrderCount() public view returns (uint) {
         return orders.length;
     }
 
-    // Функция для получения количества отзывов в системе
     function getReviewCount() public view returns (uint) {
         return reviews.length;
     }
 
-    // Функция для получения конкретного заказа по ID
     function getOrder(uint _orderId) public view returns (
         address sender,
         address recipient,
@@ -143,9 +132,7 @@ contract Logistics {
         );
     }
 
-    // Новые функции
 
-    // Функция для вывода средств компании
     function withdrawCompanyFunds() public {
         require(msg.sender == companyAddress, "Only the company can withdraw funds");
         uint balance = address(this).balance;
@@ -154,18 +141,15 @@ contract Logistics {
         require(success, "Withdrawal failed.");
     }
 
-    // Функция для получения отзывов по определенному заказу
     function getReviewsByOrder(uint _orderId) public view returns (Review[] memory) {
         uint reviewCount = 0;
 
-        // Подсчитываем количество отзывов для конкретного заказа
         for (uint i = 0; i < reviews.length; i++) {
             if (reviews[i].orderId == _orderId) {
                 reviewCount++;
             }
         }
 
-        // Создаем массив для отзывов по заказу
         Review[] memory orderReviews = new Review[](reviewCount);
         uint index = 0;
 
@@ -179,7 +163,6 @@ contract Logistics {
         return orderReviews;
     }
 
-    // Функция для получения среднего рейтинга компании
     function getAverageRating() public view returns (uint) {
         uint totalRating = 0;
         uint totalReviews = reviews.length;
@@ -195,18 +178,15 @@ contract Logistics {
         return totalRating / totalReviews;
     }
 
-    // Функция для поиска заказов по отправителю
     function getOrdersBySender(address _sender) public view returns (Order[] memory) {
         uint count = 0;
 
-        // Подсчитываем количество заказов для конкретного отправителя
         for (uint i = 0; i < orders.length; i++) {
             if (orders[i].sender == _sender) {
                 count++;
             }
         }
 
-        // Создаем массив для заказов отправителя
         Order[] memory senderOrders = new Order[](count);
         uint index = 0;
 

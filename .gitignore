@@ -8,3 +8,8 @@ generate_structure.py
 # Логи и системные файлы
 *.log
 .DS_Store
+
+# Отчет
+
+Аскаров_Б.Р._Отчет по курсовой работе.docx
+scheme.py
