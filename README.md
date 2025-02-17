@@ -56,7 +56,7 @@ LogisticsDApp — это децентрализованное приложени
 ### Шаг 1: Клонирование Репозитория
 
 ```bash
-git clone [https://github.com/BUBLET/logistics-app](https://github.com/BUBLET/logistics-app)
+git clone https://github.com/BUBLET/logistics-app
 cd logistics-app
 ```
 
